@@ -6,13 +6,18 @@ module MassiveMatch
   class Constraint
     attr_accessor :name, :vars, :operator, :target
 
-    OPERATOR_MAP = {
-      '='  => LPSelect::EQ,
-      '<=' => LPSelect::LE,
-      '>=' => LPSelect::GE
-    }
-
     class << self
+      #
+      # A map from textual to LP operators 
+      #
+      def operator_map
+        {
+          '='  => LPSelect::EQ,
+          '<=' => LPSelect::LE,
+          '>=' => LPSelect::GE
+        }
+      end
+
       #
       # Give a constraint a unique name
       #
@@ -29,18 +34,33 @@ module MassiveMatch
     # :vars     : LPSolve variable name to constrain
     # :operator : '=', '>=', or '<='
     # :target   : integer to operate on
+    # :flexible : >= ops only; scales the size down to elts if vars.size > elts
     #
     def initialize(args = {})
+      in_args = args.dup
+
       Constraint.stamp_name!(self)
-      @vars = args[:vars]
-      @operator = OPERATOR_MAP[args[:operator]]
-      @target = args[:target]
+
+      # Allow for > and < operators
+      if in_args[:operator] == '>'
+        in_args[:operator] == '>='
+        in_args[:target] -= 1
+      elsif in_args[:operator] == '<'
+        in_args[:operator] == '<='
+        in_args[:target] += 1
+      end
+
+      @vars = in_args[:vars]
+      @operator = Constraint.operator_map[in_args[:operator]]
+      @target = in_args[:target]
+      @flexible = (in_args[:flexible] || false) && (@operator == LPSelect::GE)
     end
 
     #
     # Format for consumption by LPSolve
     #
     def to_lp_arg
+      @target = vars.size if @flexible && (vars.size < target)
       {
         :name   => name,
         :target => target,
