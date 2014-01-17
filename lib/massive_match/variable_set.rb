@@ -27,13 +27,14 @@ module MassiveMatch
     # the new subset
     #
     def create_subset(subset_elts)
+      ordered_subset_elts = ActiveSupport::OrderedHash.new
       @sets.each do |k,v|
-        if !subset_elts.has_key?(k)
-          subset_elts[k] = v.dup
-        end
+        ordered_subset_elts[k] = subset_elts.has_key?(k) ?
+          subset_elts[k] :
+          v.dup
       end
 
-      VariableSet.new(subset_elts, @set_indices)
+      VariableSet.new(ordered_subset_elts, @set_indices)
     end
 
 
@@ -105,7 +106,6 @@ module MassiveMatch
     def winnow_indices(indices)
       results = {}
       @sets.each do |set_name,set|
-        # puts [set_name, set].inspect
         results[set_name] = {}
         set.each do |elt|
           results[set_name][elt] = indices[set_name][elt]
