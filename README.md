@@ -15,6 +15,7 @@ You may specify rules for matches. Say, each dog must be walked by two different
 
 ### Example
 
+```
 \# set up the matcher
 walkers = ['Alice', 'Bob', 'Carol', 'Chris']
 dogs = ['Arnold', 'Bear', 'Clifford', 'Danger']
@@ -51,6 +52,7 @@ matches = matcher.match
 matches.each do |walker,dog|
   \# insert interesting code here
 end
+```
 
 
 Note that you don't have to use strings for walkers and dogs, any object will
