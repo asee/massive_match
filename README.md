@@ -15,8 +15,8 @@ You may specify rules for matches. Say, each dog must be walked by two different
 
 ### Example
 
-```
-\# set up the matcher
+```ruby
+# set up the matcher
 walkers = ['Alice', 'Bob', 'Carol', 'Chris']
 dogs = ['Arnold', 'Bear', 'Clifford', 'Danger']
 matcher = MassiveMatch::TupleMatch.new(
@@ -24,14 +24,14 @@ matcher = MassiveMatch::TupleMatch.new(
   :dogs => dogs
 )
 
-\# specify that we want each dog walked twice
+# specify that we want each dog walked twice
 matcher.set_matches_per_element(:dogs, 2)
 
-\# and that each walker can walk 1-3 dogs
+# and that each walker can walk 1-3 dogs
 matcher.set_matches_per_element(:walkers, 1..3)
 
-\# create a rule that disallows walkers from walking dogs whose names start
-\# with the same first letter as their walker
+# create a rule that disallows walkers from walking dogs whose names start
+# with the same first letter as their walker
 walker_name_markers = {}.tap do |wnm|
   walkers.each{|walker| wnm[walker] = walker[0..1]}
 end
@@ -45,12 +45,12 @@ matcher.exclude_on_markers(
   :dogs => dog_name_markers
 )
 
-\# solve the equation
+# solve the equation
 matches = matcher.match
 
-\# iterate over the results
+# iterate over the results
 matches.each do |walker,dog|
-  \# insert interesting code here
+  # insert interesting code here
 end
 ```
 
