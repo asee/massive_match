@@ -26,6 +26,7 @@ module MassiveMatch
 
     def initialize(sets)
       @sets = sets
+      @set_options = {}.tap{|out| sets.keys.each{|k| out[k] ={}}}
       @variable_set = VariableSet.new(sets)
       @constraints = []
       @matches_per_element = {}
@@ -36,19 +37,24 @@ module MassiveMatch
 
     #
     # Makes it so that each element within a vector is matched a set number of
-    # times
+    # times.
     #
-    def set_matches_per_element(match_vector)
-      @matches_per_element = @matches_per_element.merge(match_vector)
+    def set_matches_per_element(set_name, num_matches, options={})
+      @set_options[set_name][:num_matches] = num_matches
+      @set_options[set_name] = @set_options[set_name].merge(options)
     end
 
 
     #
     # Adds a subset as an inclusion set. Inclusion sets are unioned upon solve
     # time to create a variable matrix which contains each possible tuple.
+    #
     # A weight can be optionally added, with lower weights being preferred over
-    # higher weights on solve. Elements assigned multiple weights are currently
-    # unstable and should be avoided.
+    # higher weights on solve. Weights may also be expressed as a range, with
+    # a random value from the range being assigned to any given element.
+    #
+    # Elements assigned multiple weights are currently will have those weights
+    # summed.
     #
     def add_inclusion_composer(vectors, options={})
       weight = options[:weight] || 1
@@ -72,14 +78,16 @@ module MassiveMatch
     # Takes in a set of vectors which will compose a matrix of illegal
     # combinations
     #
-    def add_exclusion_constraint(vectors)
+    def add_exclusion_constraint(vectors, options = {})
       subset = @variable_set.create_subset(vectors)
       if !subset.empty?
-        @constraints << Constraint.new(
+        constraint_hash = {
           :vars => subset.to_lp_vars,
           :operator => '=',
           :target => 0
-        )
+        }
+        constraint_hash[:name] = options[:name] if options.has_key?(:name)
+        @constraints << Constraint.new(constraint_hash)
       end
     end
 
@@ -96,7 +104,7 @@ module MassiveMatch
     #
     # Any elements that share a marker will be put into an exclusion constraint
     #
-    def exclude_on_markers(marker_hashes)
+    def exclude_on_markers(marker_hashes, options = {})
       # reindex
       objects_by_marker = reindex_by_marker(marker_hashes)
 
@@ -106,7 +114,7 @@ module MassiveMatch
         until marked_sets.size == 1
           o_name, o_set = marked_sets.pop
           marked_sets.each do |i_name,iter_hash|
-            add_exclusion_constraint({o_name => o_set, i_name => iter_hash})
+            add_exclusion_constraint({o_name => o_set, i_name => iter_hash}, options)
           end
         end
       end
@@ -121,11 +129,9 @@ module MassiveMatch
       lp = LPSelect.new(:vars => inclusion_vars)
       lp.set_objective(compose_objective)
 
-      # Added whatever constraints have been placed
+      # Add whatever constraints have been placed
       constraints.each do |c|
-        c.vars &= inclusion_vars if @inclusion_composers
         next if c.vars.empty?
-
         lp.add_constraint(c.to_lp_arg)
       end
 
@@ -153,8 +159,11 @@ module MassiveMatch
       objective = {}
       @inclusion_composers.each do |weight,weighted_sets|
         weighted_sets.each do |set|
-          set.to_lp_vars.each do |var|
-            objective[var] = weight
+          cycler = (weight.is_a?(Range) ? weight : [weight]).cycle
+          set.to_lp_vars.shuffle.each do |var|
+            w = cycler.next
+            objective[var] ||= 0
+            objective[var] += w
           end
         end
       end
@@ -186,35 +195,41 @@ module MassiveMatch
       run_constraints = @constraints.dup
       run_constraints += extra_constraints
 
+      # Apply inclusion vars if needed
+      @constraints.each{|c| c.vars &= inclusion_vars} if @inclusion_composers
+
       # Add object-wide constraints
-      @matches_per_element.each do |set_name,num_matches|
-        set = @sets[set_name]
+      @sets.each do |set_name,set|
+        next unless @set_options[set_name][:num_matches]
+        num_matches = @set_options[set_name][:num_matches]
+        match_padding = @set_options[set_name][:match_padding] || 0
         set.each do |elt|
           # create a subset of all vars attached to our element
           subset = @variable_set.create_subset(set_name => [elt])
+          subset_vars = subset.to_lp_vars
+          subset_vars &= inclusion_vars if @inclusion_composers
 
           # add that subset as a constraint
           if num_matches.is_a?(Integer)
             run_constraints << Constraint.new(
-              :vars => subset.to_lp_vars,
+              :vars => subset_vars,
               :operator => '=',
-              :target => num_matches
+              :target => [num_matches, subset_vars.size].min
             )
           elsif num_matches.is_a?(Range)
             run_constraints << Constraint.new(
-              :vars => subset.to_lp_vars,
+              :vars => subset_vars,
               :operator => '>=',
-              :target => num_matches.min,
-              :flexible => true
+              :target => [num_matches.min, subset_vars.size - match_padding].min
             )
 
             run_constraints << Constraint.new(
-              :vars => subset.to_lp_vars,
+              :vars => subset_vars,
               :operator => '<=',
               :target => num_matches.max
-            )            
+            )
           else
-            raise "Matches per element target must an Integer or a Range"
+            raise "Matches per element target must an Integer or a Range #{num_matches.inspect}"
           end
         end
       end

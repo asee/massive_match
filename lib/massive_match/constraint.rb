@@ -40,6 +40,7 @@ module MassiveMatch
       in_args = args.dup
 
       Constraint.stamp_name!(self)
+      @name += '_'+args[:name] if args[:name]
 
       # Allow for > and < operators
       if in_args[:operator] == '>'
