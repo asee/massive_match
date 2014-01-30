@@ -33,11 +33,11 @@ matcher.set_matches_per_element(:walkers, 1..3)
 # create a rule that disallows walkers from walking dogs whose names start
 # with the same first letter as their walker
 walker_name_markers = {}.tap do |wnm|
-  walkers.each{|walker| wnm[walker] = walker[0..1]}
+  walkers.each{|walker| wnm[walker] = walker[0..0]}
 end
 
 dog_name_markers = {}.tap do |wnm|
-  dogs.each{|dog| wnm[dog] = dog[0..1]}
+  dogs.each{|dog| wnm[dog] = dog[0..0]}
 end
 
 matcher.exclude_on_markers(
