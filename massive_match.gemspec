@@ -8,8 +8,8 @@ Gem::Specification.new do |spec|
   spec.version       = MassiveMatch::VERSION
   spec.authors       = ["Jake Sower"]
   spec.email         = ["j.sower@asee.org"]
-  spec.description   = %q{TODO: Write a gem description}
-  spec.summary       = %q{TODO: Write a gem summary}
+  spec.description   = %q{Match arbitrary sets to each other.}
+  spec.summary       = %q{Match arbitrary sets to each other.}
   spec.homepage      = ""
   spec.license       = "MIT"
 
