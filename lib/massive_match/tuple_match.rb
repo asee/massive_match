@@ -138,6 +138,48 @@ module MassiveMatch
 
 
     #
+    # Match some exact number of elements from the subset
+    #
+    def match_exactly(vectors, target, options={})
+      subset = @variable_set.create_subset(vectors)
+      add_constraint(
+        :vars => subset.to_lp_vars,
+        :operator => '=',
+        :target => target,
+        :name => options[:name]
+      )
+    end
+
+
+    #
+    # Match some exact number of elements from the subset
+    #
+    def match_at_least(vectors, target, options={})
+      subset = @variable_set.create_subset(vectors)
+      add_constraint(
+        {:vars => subset.to_lp_vars,
+        :operator => '>=',
+        :target => target,
+        :name => options[:name]}.merge(options)
+      )
+    end
+
+
+    #
+    # Match some exact number of elements from the subset
+    #
+    def match_at_most(vectors, target, options={})
+      subset = @variable_set.create_subset(vectors)
+      add_constraint(
+        :vars => subset.to_lp_vars,
+        :operator => '>=',
+        :target => target,
+        :name => options[:name]
+      )
+    end
+
+
+    #
     # Run the match with current constraints
     #
     def match
