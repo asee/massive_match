@@ -120,6 +120,22 @@ module MassiveMatch
       end
     end
 
+    def include_on_markers(marker_hashes, options = {})
+      # reindex
+      objects_by_marker = reindex_by_marker(marker_hashes)
+
+      # iterate over combinations
+      objects_by_marker.each do |marker,marked_hashes|
+        marked_sets = marked_hashes.to_a
+        until marked_sets.size == 1
+          o_name, o_set = marked_sets.pop
+          marked_sets.each do |i_name,iter_hash|
+            add_inclusion_composer({o_name => o_set, i_name => iter_hash}, options)
+          end
+        end
+      end
+    end
+
 
     #
     # Run the match with current constraints
