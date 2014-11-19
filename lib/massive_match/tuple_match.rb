@@ -172,7 +172,7 @@ module MassiveMatch
       subset = @variable_set.create_subset(vectors)
       add_constraint(
         :vars => subset.to_lp_vars,
-        :operator => '>=',
+        :operator => '<=',
         :target => target,
         :name => options[:name]
       )
