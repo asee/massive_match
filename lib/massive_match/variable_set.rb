@@ -2,6 +2,7 @@
 # VariableSets provide methods for accessing variables as well as
 # methods for outputting those variables for consumption by LPSolve
 #
+
 module MassiveMatch
   class VariableSet
     include Enumerable
@@ -27,7 +28,7 @@ module MassiveMatch
     # the new subset
     #
     def create_subset(subset_elts)
-      ordered_subset_elts = ActiveSupport::OrderedHash.new
+      ordered_subset_elts = {}
       @sets.each do |k,v|
         ordered_subset_elts[k] = subset_elts.has_key?(k) ?
           subset_elts[k] :
@@ -44,7 +45,7 @@ module MassiveMatch
       @sets.keys.map do |k|
         vals << @set_indices[k].values
       end
-      vals.first.cartesian_product(*vals[1..-1])
+      vals.first.product(*vals[1..-1])
     end
 
 
@@ -94,7 +95,7 @@ module MassiveMatch
       @sets.each do |set_name,set|
         indexed_set[set_name] = {}
         set.each_with_index do |elt,i|
-          indexed_set[set_name][elt] = elt.id
+          indexed_set[set_name][elt] = i
         end
       end
       indexed_set

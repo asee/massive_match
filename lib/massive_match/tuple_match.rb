@@ -1,4 +1,7 @@
+require 'rubygems'
+
 module MassiveMatch
+  class NoOptimalSolution < Exception; end
 
   #
   # Matches groups of elements from an arbitrary number of sets. It can match
@@ -183,28 +186,58 @@ module MassiveMatch
     # Run the match with current constraints
     #
     def match
-      # Set up initial variables
-      lp = LPSelect.new(:vars => inclusion_vars)
-      lp.set_objective(compose_objective)
+      eq_file_path = "/tmp/eq#{Process.pid}"
 
-      # Add whatever constraints have been placed
-      constraints.each do |c|
-        next if c.vars.empty?
-        lp.add_constraint(c.to_lp_arg)
+      # Step 1: Compose the equation -- objective and constraints get
+      #         calculated and formatted quietly in here
+      #
+      File.open(eq_file_path, "w") do |file|
+        # objective
+        obj_str = objective.map{|var, weight| "+#{weight} #{var}"}
+        file.write("min: #{obj_str.join(" ")};\n")
+
+        # constraints
+        file.write(constraints.map(&:to_lp_arg).join("\n"))
+
+        # variable must be either 0 or 1 (not selected or selected)
+        file.write(inclusion_vars.map{|v| "#{v} <= 1;"}.join("\n"))
       end
 
-      # Write to a file for debugging (comment this out later)
-      lp.to_file("/tmp/eq")
-
-      # Solve the equation
+      # Step 2: Pipe the equation over to LPSelect
+      #
+      lp = LPSelect.new(filename: eq_file_path)
       status = lp.solve
       if status != LPSolve::OPTIMAL
-        raise "No optimal solution"
+        raise NoOptimalSolution, "No optimal solution"
       end
 
-      # Parse the results
+
+      # Step 3: Retrieve the results
+      #
       results = lp.results.reject{|var, result| result.zero?}.keys
-      results.map{|result| @variable_set[result]}
+      results = results.map{|result| @variable_set[result]}
+    end
+
+
+    #
+    # Dump the data into a file for processing later or elsewhere
+    #
+    def dump(file)
+      vars = {
+        objective: objective,
+        constraints: constraints
+      }
+
+      File.open(file, 'wb') {|f| f.write(Marshal.dump(vars))}
+    end
+
+
+    #
+    # Load data back in
+    #
+    def load(file)
+      raw = Marshal.load(File.read(file))
+      raise raw.inspect
     end
 
 
@@ -213,9 +246,10 @@ module MassiveMatch
     #
     # Composes the objective function
     #
-    def compose_objective
+    def objective
       objective = {}
-      @inclusion_composers.each do |weight,weighted_sets|
+      composers = @inclusion_composers || {1 => [@variable_set]}
+      composers.each do |weight,weighted_sets|
         weighted_sets.each do |set|
           cycler = (weight.is_a?(Range) ? weight : [weight]).cycle
           set.to_lp_vars.shuffle.each do |var|
