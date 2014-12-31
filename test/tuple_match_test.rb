@@ -3,7 +3,7 @@ require 'minitest/autorun'
 
 class TupleMatchTest < Minitest::Test
   def setup
-    @dogs = ['Arfie', 'Bear', 'Canon', 'Cupcake', 'Daredevil']
+    @dogs = ['Arfie', 'Bear', 'Canon', 'Cupcake', 'Godzilla']
     @humans = ['Alice', 'Bob', 'Carol', 'Dave', 'Eve', 'Franz']
 
     @matcher = MassiveMatch::TupleMatch.new(
@@ -27,34 +27,30 @@ class TupleMatchTest < Minitest::Test
     results = @matcher.match
 
     assert_equal [@dogs.size, @humans.size].max, results.size
-    assert @dogs.all?{|dog| results.any?{|r| r[:dogs] == dog}}
-    assert @humans.all?{|human| results.any?{|r| r[:humans] == humans}}
+    assert @dogs.all?{|dog| results.any?{|d,h| d == dog}}
+    assert @humans.all?{|human| results.any?{|d,h| h == human}}
   end
 
 
-  def test_result_block_forms
-    @matcher.match_at_least({dogs: @dogs.each, humans: @humans}, 1)
-    @matcher.match_at_least({dogs: @dogs, humans: @humans.each}, 1)
+  # def test_result_block_forms
+  #   @matcher.match_at_least({dogs: @dogs.each, humans: @humans}, 1)
+  #   @matcher.match_at_least({dogs: @dogs, humans: @humans.each}, 1)
 
-    results = @matcher.match
+  #   results = @matcher.match
 
-    assert results.detect{|match| @dogs.include?(match[:dogs])}
-    assert results.detect{|dog, human| @dogs.include?(dog) && @humans.include?(human)}
-  end
+  #   assert results.detect{|match| @dogs.include?(match[:dogs])}
+  #   # assert results.detect{|dog, human| @dogs.include?(dog) && @humans.include?(human)}
+  # end
 
   
   def test_insoluble_raises_error
-    @matcher.match_at_least({humans: [@humans.first]}, @dogs.size + 1)
-    @matcher.match_at_most({humans: [@humans.first]}, @dogs.size)
+    @matcher.match_exactly({humans: [@humans.first]}, @dogs.size)
+    @matcher.match_exactly({humans: [@humans.first]}, @dogs.size + 1)
 
-    assert_raise do
+    assert_raises MassiveMatch::NoOptimalSolution do
       @matcher.match
     end
   end
 
-
-  def test_matchers_exclude_on_markers
-    assert false
-  end
   
 end

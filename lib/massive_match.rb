@@ -1,5 +1,3 @@
-require 'rubygems'
-require 'lp_select'
 require_relative "massive_match/version"
 
 module MassiveMatch
@@ -8,4 +6,5 @@ module MassiveMatch
   require_relative 'massive_match/variable_set.rb'
   require_relative 'massive_match/selection_match.rb'
   require_relative 'massive_match/flat_variable_set.rb'
+  require_relative 'massive_match/result.rb'
 end

@@ -1,7 +1,10 @@
-require 'rubygems'
+require 'tempfile'
 
 module MassiveMatch
   class NoOptimalSolution < Exception; end
+
+  LP_SOLVE = File.expand_path('../../binaries/lp_solve', __FILE__)
+
 
   #
   # Matches groups of elements from an arbitrary number of sets. It can match
@@ -144,13 +147,7 @@ module MassiveMatch
     # Match some exact number of elements from the subset
     #
     def match_exactly(vectors, target, options={})
-      subset = @variable_set.create_subset(vectors)
-      add_constraint(
-        :vars => subset.to_lp_vars,
-        :operator => '=',
-        :target => target,
-        :name => options[:name]
-      )
+      match_some(vectors, target, options.merge(operator: '='))
     end
 
 
@@ -158,13 +155,7 @@ module MassiveMatch
     # Match some exact number of elements from the subset
     #
     def match_at_least(vectors, target, options={})
-      subset = @variable_set.create_subset(vectors)
-      add_constraint(
-        {:vars => subset.to_lp_vars,
-        :operator => '>=',
-        :target => target,
-        :name => options[:name]}.merge(options)
-      )
+      match_some(vectors, target, options.merge(operator: '>='))
     end
 
 
@@ -172,13 +163,20 @@ module MassiveMatch
     # Match some exact number of elements from the subset
     #
     def match_at_most(vectors, target, options={})
-      subset = @variable_set.create_subset(vectors)
-      add_constraint(
-        :vars => subset.to_lp_vars,
-        :operator => '<=',
-        :target => target,
-        :name => options[:name]
-      )
+      match_some(vectors, target, options.merge(operator: '<='))
+    end
+
+
+    #
+    # Generic matcher
+    #
+    def match_some(vectors, target, options={})
+      options = {target: target}.merge(options)
+
+      expand_vectors(vectors).each do |expanded_vector|
+        subset = @variable_set.create_subset(expanded_vector)
+        add_constraint({vars: subset.to_lp_vars}.merge(options))
+      end
     end
 
 
@@ -186,63 +184,71 @@ module MassiveMatch
     # Run the match with current constraints
     #
     def match
-      eq_file_path = "/tmp/eq#{Process.pid}"
+      file = Tempfile.new('massive_match')
 
       # Step 1: Compose the equation -- objective and constraints get
       #         calculated and formatted quietly in here
       #
-      File.open(eq_file_path, "w") do |file|
-        # objective
-        obj_str = objective.map{|var, weight| "+#{weight} #{var}"}
-        file.write("min: #{obj_str.join(" ")};\n")
 
-        # constraints
-        file.write(constraints.map(&:to_lp_arg).join("\n"))
+      # objective
+      obj_str = objective.map{|var, weight| "+#{weight} #{var}"}
+      file.write("min: #{obj_str.join(" ")};\n")
 
-        # variable must be either 0 or 1 (not selected or selected)
-        file.write(inclusion_vars.map{|v| "#{v} <= 1;"}.join("\n"))
-      end
+      # constraints
+      file.write(constraints.map(&:to_lp_arg).join("\n")+"\n\n")
 
-      # Step 2: Pipe the equation over to LPSelect
+      # variable must be either 0 or 1 (not selected or selected)
+      file.write(inclusion_vars.map{|v| "#{v} <= 1;"}.join("\n"))
+
+      # Step 2: Pipe the equation over to lp_solve
       #
-      lp = LPSelect.new(filename: eq_file_path)
-      status = lp.solve
-      if status != LPSolve::OPTIMAL
-        raise NoOptimalSolution, "No optimal solution"
-      end
+      file.rewind
+      lp_results = `#{LP_SOLVE} #{file.path}`
 
-
-      # Step 3: Retrieve the results
+      # Step 3: Retrieve and parse the results
       #
-      results = lp.results.reject{|var, result| result.zero?}.keys
-      results = results.map{|result| @variable_set[result]}
-    end
-
-
-    #
-    # Dump the data into a file for processing later or elsewhere
-    #
-    def dump(file)
-      vars = {
-        objective: objective,
-        constraints: constraints
-      }
-
-      File.open(file, 'wb') {|f| f.write(Marshal.dump(vars))}
-    end
-
-
-    #
-    # Load data back in
-    #
-    def load(file)
-      raw = Marshal.load(File.read(file))
-      raise raw.inspect
+      results = parse_lp_results(lp_results)
     end
 
 
 
   private
+    #
+    # Parse results from lp_solve
+    #
+    def parse_lp_results(results)
+      infeasible_matcher = /This problem is infeasible/
+      result_matcher = /^(v[\dx]+) +1$/
+
+      raise NoOptimalSolution, "No optimal solution or empty result set" if infeasible_matcher.match(results)
+
+      lp_vars = results.scan(result_matcher).map do |result|
+        @variable_set[result.first]
+      end
+    end
+
+
+    #
+    # Handles such things as vectors expressed as enumerators, returns an array
+    # of extracted vectors
+    #
+    def expand_vectors(vectors)
+      return [vectors] unless vectors.any?{|k,v| v.is_a?(Enumerator)}
+
+      vectors.reduce([{}]) do |memo, (set, vector)|
+        # expand out enumerators if needed
+        to_merge = vector.is_a?(Enumerator) ?
+          vector.map { |v_elt| {set => [v_elt]} } :
+          [{set => vector}]
+
+        # cross the incoming vectors with what we've accumulated
+        to_merge.map do |m|
+          memo.map { |lm| m.merge(lm) }
+        end.flatten
+      end
+    end
+
+
     #
     # Composes the objective function
     #

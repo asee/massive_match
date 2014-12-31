@@ -77,6 +77,20 @@ module MassiveMatch
 
 
     #
+    # This should replace the above once https://bugs.ruby-lang.org/issues/10684 is done
+    #
+    # def [](val)
+    #   val = val.to_s[1..-1] # lop off the leading "v"
+    #   indices = val.split('x')
+    #   {}.tap do |out|
+    #     @sets.keys.each do |set_name|
+    #       out[set_name] = lookup_index(set_name,indices.shift)
+    #     end
+    #   end
+    # end
+
+
+    #
     # Pseudo-Set operations--these assume a common superset of sets
     #
     # def &(other)
