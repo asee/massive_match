@@ -3,8 +3,8 @@ require 'tempfile'
 module MassiveMatch
   class NoOptimalSolution < Exception; end
 
-  LP_SOLVE = File.expand_path('../../binaries/lp_solve', __FILE__)
-
+  KERNEL_TYPE = `uname -s`.split("\n").first
+  LP_SOLVE = File.expand_path("../../binaries/lp_solve_#{KERNEL_TYPE.downcase}", __FILE__)
 
   #
   # Matches groups of elements from an arbitrary number of sets. It can match
