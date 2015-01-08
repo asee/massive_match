@@ -199,7 +199,7 @@ module MassiveMatch
       # Solve the equation
       status = lp.solve
       if status != LPSolve::OPTIMAL
-        raise "No optimal solution"
+        raise NoOptimalSolution, "No optimal solution"
       end
 
       # Parse the results
