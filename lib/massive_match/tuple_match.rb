@@ -242,7 +242,7 @@ module MassiveMatch
         end.flatten
       end
     end
-    
+
 
     #
     # Pulls the lp variables forming the inclusion matrix from composers

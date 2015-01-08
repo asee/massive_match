@@ -20,8 +20,8 @@ You may specify rules for matches. Say, each dog must be walked by two different
 walkers = ['Alice', 'Bob', 'Carol', 'Chris']
 dogs = ['Arnold', 'Bear', 'Clifford', 'Danger']
 matcher = MassiveMatch::TupleMatch.new(
-  :walkers => walkers,
-  :dogs => dogs
+  walkers: walkers,
+  dogs: dogs
 )
 
 # specify that we want each dog walked twice
@@ -41,8 +41,8 @@ dog_name_markers = {}.tap do |wnm|
 end
 
 matcher.exclude_on_markers(
-  :walkers => walker_name_markers,
-  :dogs => dog_name_markers
+  walkers: walker_name_markers,
+  dogs: dog_name_markers
 )
 
 # solve the equation
