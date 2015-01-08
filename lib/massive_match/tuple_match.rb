@@ -141,13 +141,7 @@ module MassiveMatch
     # Match some exact number of elements from the subset
     #
     def match_exactly(vectors, target, options={})
-      subset = @variable_set.create_subset(vectors)
-      add_constraint(
-        :vars => subset.to_lp_vars,
-        :operator => '=',
-        :target => target,
-        :name => options[:name]
-      )
+      match_some(vectors, target, options.merge(operator: '='))
     end
 
 
@@ -155,13 +149,7 @@ module MassiveMatch
     # Match some exact number of elements from the subset
     #
     def match_at_least(vectors, target, options={})
-      subset = @variable_set.create_subset(vectors)
-      add_constraint(
-        {:vars => subset.to_lp_vars,
-        :operator => '>=',
-        :target => target,
-        :name => options[:name]}.merge(options)
-      )
+      match_some(vectors, target, options.merge(operator: '>='))
     end
 
 
@@ -169,13 +157,19 @@ module MassiveMatch
     # Match some exact number of elements from the subset
     #
     def match_at_most(vectors, target, options={})
-      subset = @variable_set.create_subset(vectors)
-      add_constraint(
-        :vars => subset.to_lp_vars,
-        :operator => '<=',
-        :target => target,
-        :name => options[:name]
-      )
+      match_some(vectors, target, options.merge(operator: '<='))
+    end
+
+    #
+    # Generic matcher
+    #
+    def match_some(vectors, target, options={})
+      options = {target: target}.merge(options)
+
+      expand_vectors(vectors).each do |expanded_vector|
+        subset = @variable_set.create_subset(expanded_vector)
+        add_constraint({vars: subset.to_lp_vars}.merge(options))
+      end
     end
 
 
@@ -185,7 +179,7 @@ module MassiveMatch
     def match
       # Set up initial variables
       lp = LPSelect.new(:vars => inclusion_vars)
-      lp.set_objective(compose_objective)
+      lp.set_objective(objective)
 
       # Add whatever constraints have been placed
       constraints.each do |c|
@@ -213,7 +207,7 @@ module MassiveMatch
     #
     # Composes the objective function
     #
-    def compose_objective
+    def objective
       objective = {}
       @inclusion_composers.each do |weight,weighted_sets|
         weighted_sets.each do |set|
@@ -228,6 +222,27 @@ module MassiveMatch
       objective
     end
 
+
+    #
+    # Handles such things as vectors expressed as enumerators, returns an array
+    # of extracted vectors
+    #
+    def expand_vectors(vectors)
+      return [vectors] unless vectors.any?{|k,v| v.is_a?(Enumerator)}
+
+      vectors.reduce([{}]) do |memo, (set, vector)|
+        # expand out enumerators if needed
+        to_merge = vector.is_a?(Enumerator) ?
+          vector.map { |v_elt| {set => [v_elt]} } :
+          [{set => vector}]
+
+        # cross the incoming vectors with what we've accumulated
+        to_merge.map do |m|
+          memo.map { |lm| m.merge(lm) }
+        end.flatten
+      end
+    end
+    
 
     #
     # Pulls the lp variables forming the inclusion matrix from composers
